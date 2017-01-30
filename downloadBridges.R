@@ -2,6 +2,7 @@ install.packages("ggplot2")
 install.packages("plyr")
 install.packages("choroplethr")
 install.packages("dplyr")
+install.packages("readr")
 
 library(plyr)
 library(choroplethr)
@@ -15,7 +16,7 @@ library(data.table)
 
 # I like fread (from data.table) and read_csv (from readr).  
 # in my experience, fread is faster and deals with data entry errors a little more elegantly.
-# downside of fread: it saves to format data.table.  
+# downside of fread: it saves to format data.table (not data frame or matrix).  
 #   if you know how to use it, this can be super-duper fast.
 # we will be using dplyr instead, which is merely super fast. 
 # So, I always convert to a tibble (as.tbl) after an fread.  tibbles are basically data.frames that print nicer.
@@ -24,7 +25,7 @@ dest = "https://www.fhwa.dot.gov/bridge/nbi/2016/delimited/AK16.txt"
 tmp = fread(dest) 
 tmp = as.tbl(tmp)
 tmp1 = read_csv(dest)
-tmp2 = read_csv(dest, col_types = "character")  # could make them all characters...
+tmp2 = read_csv(dest, col_types = "c")  # c makes all columns character...kinda fails
 classes = sapply(tmp, class)
 
 
@@ -59,20 +60,23 @@ dat=list()
 
 
 
-dest= rep("", 52)
+dest= rep("", 52) #vector of 52 ""
 for(i in 1:52) dest[i]=paste("https://www.fhwa.dot.gov/bridge/nbi/2016/delimited/", states[i,2],"16.txt", sep = "") 
-x16 = ldply(dest, fread, colClasses = classes)  
-
+x16 = ldply(dest, fread, colClasses = classes)  #for loops through dest, freads it and specifies read in as classes
+save(x16, file = "allStates16.RData")
 
 # let's dig into the values and see if there are any crazy things going on...
 M = x16
-M = M[,-14]
-is.na(M) %>% rowSums %>% hist
+#M = M[,-14]
+is.na(M) %>% rowSums %>% hist # takes thing and makes first argument of function
+#is.na(M) is first argument of rowSums
+#hist(rowSums(is.na(M))) same thing as line above
 is.na(M) %>% colSums %>% hist(breaks = 100)
 fun = function(x){ return(which(x>20)) }
 (bad =  is.na(M) %>% colSums %>% fun)
 M = M[,-bad]
-jold =1
+
+jold =1 #for each column, how many characters are there
 for(j in jold:ncol(M)){
   nc = nchar(M[,j], keepNA = T)
   print(j)
@@ -162,6 +166,11 @@ table(wi$cond)
 table(wi$rate)
 wi = filter(wi, cond>1)
 ggplot(data = wi, mapping = aes(y = log(ADT_029), x =YEAR_BUILT_027, col = rate)) +geom_point() + geom_smooth()
+
+wi %>% group_by(YEAR_BUILT_027) %>%
+  summarize(prop = mean(rate == "good")) %>%
+  ggplot(mapping = aes(x=YEAR_BUILT_027, y = prop)) + 
+  geom_point()
 
 map = ggplot(data = wi, mapping = aes(y = lat, x = lon))
 map + geom_point(aes(col=rate))+ scale_colour_brewer(palette = "Spectral")  
